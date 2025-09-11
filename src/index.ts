@@ -90,6 +90,12 @@ const BLADE_OPTIONS = [
   { key: "Hybrid", name: "Hybrid bond" },
 ];
 
+function vacuumRangeForChuck(chuckType:string){
+  if(chuckType==="HighVac") return { lo: 85, hi: 95 };
+  if(chuckType==="LowVac") return { lo: 60, hi: 75 };
+  return { lo: 70, hi: 90 }; // Standard
+}
+
 export default function DicingEngineerToolkit(){
   // Core recipe
   const [material, setMaterial] = useState("Si");
@@ -105,6 +111,11 @@ export default function DicingEngineerToolkit(){
   const [feed, setFeed] = useState(1.5);
   const [coolant, setCoolant] = useState(4.0);
   const [wear, setWear] = useState(0.2);
+
+  // Environmental controls
+  const [envTemp, setEnvTemp] = useState(22);
+  const [chuckType, setChuckType] = useState("Standard");
+  const [vacuum, setVacuum] = useState(80);
 
   // Map
   const [mapGood, setMapGood] = useState<number>();
@@ -160,60 +171,50 @@ export default function DicingEngineerToolkit(){
     reader.readAsText(f);
   };
 
-  const verificationSpecs = getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip});
-
-  // Inline PASS/FAIL for Process Flow summary
-  const verificationSummary = () => {
-    const results = verificationSpecs.map(s => {
-      const m = Number(meas[s.key]);
-      const ok = isFinite(m) && m>=s.lo && m<=s.hi;
-      const status = isFinite(m) ? (ok? 'PASS' : 'FAIL') : '-';
-      return `${s.name}: ${status}`;
-    });
-    return results.join(" | ");
-  };
+  const verificationSpecs = getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip, vacuum, chuckType});
 
   const exportCSV = () => {
-    const rows:string[][] = [
-      ["Parameter","Value","Units"],
-      ["Material", material, "-"],
-      ["Wafer Diameter", waferDiam.toString(), "mm"],
-      ["Wafer Thickness", waferThk.toString(), "µm"],
-      ["Die W x H", `${dieW} x ${dieH}`, "mm"],
-      ["Street", street.toString(), "µm"],
-      ["Blade Diameter", bladeDia.toString(), "mm"],
-      ["Blade Thickness", bladeThk.toString(), "µm"],
-      ["Blade Bond", bladeBond, "-"],
-      ["RPM", rpm.toString(), "rpm"],
-      ["Feed Rate", feed.toString(), "mm/s"],
-      ["Coolant Flow", coolant.toString(), "L/min"],
-      ["Wear Factor", wear.toString(), "0-1"],
-      ["Tip Speed", number(tip), "m/s"],
-      ["Kerf (est)", number(kerf), "µm"],
-      ["Spindle Power (est)", number(powerKW,3), "kW"],
-      ["Chipping Risk", risk.toString(), "0-100"],
-      ["Die Count (usable)", (mapGood ?? die.usable).toString(), "pcs"],
-      ["Grid (cols x rows)", `${die.cols} x ${die.rows}`, "-"],
-      ["Map Good", (mapGood ?? "").toString(), "pcs"],
-      ["Map Bad", (mapBad ?? "").toString(), "pcs"],
-      ["Offset X/Y (µm)", `${offX}/${offY}`, "µm"],
-      ["Theta", theta.toString(), "deg"],
-      ["Blade Life Used", number(lifeUsedPct,1), "%"],
-      ["Blade Cut Length Acc", number(cumLength_mm,0), "mm"],
-      ["--- Verification ---","",""],
-    ];
-    verificationSpecs.forEach(s=>{
-      const m = Number(meas[s.key]);
-      const ok = isFinite(m) && m>=s.lo && m<=s.hi;
-      const status = isFinite(m) ? (ok? 'PASS' : 'FAIL') : '-';
-      rows.push([s.name, (meas[s.key]??''), `${number(s.lo)}–${number(s.hi)}`, status]);
-    });
-    const csv = rows.map(r=>r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "dicing_toolkit_export.csv"; a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const rows:string[][] = [
+        ["Parameter","Value","Units"],
+        ["Material", material, "-"],
+        ["Wafer Diameter", waferDiam.toString(), "mm"],
+        ["Wafer Thickness", waferThk.toString(), "µm"],
+        ["Die W x H", `${dieW} x ${dieH}`, "mm"],
+        ["Street", street.toString(), "µm"],
+        ["Blade Diameter", bladeDia.toString(), "mm"],
+        ["Blade Thickness", bladeThk.toString(), "µm"],
+        ["Blade Bond", bladeBond, "-"],
+        ["RPM", rpm.toString(), "rpm"],
+        ["Feed Rate", feed.toString(), "mm/s"],
+        ["Coolant Flow", coolant.toString(), "L/min"],
+        ["Wear Factor", wear.toString(), "0-1"],
+        ["Environment Temp", envTemp.toString(), "°C"],
+        ["Chuck Type", chuckType, "-"],
+        ["Vacuum Level", vacuum.toString(), "kPa"],
+        ["Tip Speed", number(tip), "m/s"],
+        ["Kerf (est)", number(kerf), "µm"],
+        ["Spindle Power (est)", number(powerKW,3), "kW"],
+        ["Chipping Risk", risk.toString(), "0-100"],
+        ["Die Count (usable)", (mapGood ?? die.usable).toString(), "pcs"],
+        ["Map Good", (mapGood ?? "").toString(), "pcs"],
+        ["Map Bad", (mapBad ?? "").toString(), "pcs"],
+        ["Yield (%)", mapGood && die.usable? number((mapGood/die.usable)*100,1):"-", "%"],
+        ["--- Verification ---","",""],
+      ];
+      verificationSpecs.forEach(s=>{
+        const m = Number(meas[s.key]);
+        const ok = isFinite(m) && m>=s.lo && m<=s.hi;
+        const status = isFinite(m) ? (ok? 'PASS' : 'FAIL') : '-';
+        rows.push([s.name, (meas[s.key]??''), `${number(s.lo)}–${number(s.hi)}`, status]);
+      });
+      const csv = rows.map(r=>r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "dicing_toolkit_export.csv"; a.click();
+      URL.revokeObjectURL(url);
+    } catch(err) { alert("CSV export failed: "+(err as Error).message); }
   };
 
   return (
@@ -235,8 +236,8 @@ export default function DicingEngineerToolkit(){
           <TabsTrigger value="life">Blade Life & Align</TabsTrigger>
           <TabsTrigger value="verify">Verification</TabsTrigger>
           <TabsTrigger value="sop">SOP</TabsTrigger>
-          <TabsTrigger value="tests">Tests</TabsTrigger>
           <TabsTrigger value="flow"><ListOrdered className="mr-2 h-4 w-4"/>Process Flow</TabsTrigger>
+          <TabsTrigger value="tests">Tests</TabsTrigger>
         </TabsList>
 
         {/* PROCESS */}
@@ -258,7 +259,7 @@ export default function DicingEngineerToolkit(){
                 <Row label="Scrub Line Width (µm)"><Input type="number" value={street} onChange={e=>setStreet(Number(e.target.value))}/></Row>
                 <Row label="Orientation"><Input placeholder="Notch @ 6 o'clock"/></Row>
                 <Row label="Fiducial Marks"><Input placeholder="Box-in-box, cross, etc."/></Row>
-                <Row label="Vacuum Level (kPa)"><Input type="number" placeholder="e.g. 80"/></Row>
+                <Row label="Environment Temp (°C)"><Input type="number" value={envTemp} onChange={e=>setEnvTemp(Number(e.target.value))}/></Row>
               </div>
 
               <div className="space-y-3">
@@ -293,12 +294,22 @@ export default function DicingEngineerToolkit(){
               </CardContent></Card>
 
               <Card className="rounded-xl border"><CardContent className="p-4 space-y-3">
-                <h3 className="font-medium">Blade Evaluation</h3>
+                <h3 className="font-medium">Blade & Vacuum Evaluation</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <Metric label="Spindle Power" value={`${number(powerKW,3)} kW`} note="Approx."/>
                   <Metric label="Chipping Risk" value={`${risk}/100`} note={risk<35?"Low":"Watch"}/>
                 </div>
-                <p className="text-xs text-muted-foreground">Resin bond favors low damage; Hybrid extends life; Metal for harder materials (SiC/Sapphire).</p>
+                <Row label="Chuck Type">
+                  <Select value={chuckType} onValueChange={setChuckType}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Standard">Standard (70–90 kPa)</SelectItem>
+                      <SelectItem value="HighVac">High Vacuum (85–95 kPa)</SelectItem>
+                      <SelectItem value="LowVac">Low Vacuum (60–75 kPa)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Row>
+                <Row label="Vacuum Level (kPa)"><Input type="number" value={vacuum} onChange={e=>setVacuum(Number(e.target.value))}/></Row>
                 <Button onClick={applySuggestions} className="rounded-2xl">Apply Suggested Setpoints</Button>
               </CardContent></Card>
             </div>
@@ -308,11 +319,14 @@ export default function DicingEngineerToolkit(){
         {/* PLANNING */}
         <TabsContent value="planning">
           <Card><CardContent className="p-4 space-y-3">
-            <h2 className="text-lg font-medium">Die Planning</h2>
+            <h2 className="text-lg font-medium">Die Planning & Inspection</h2>
             <div className="grid grid-cols-3 gap-3">
               <Metric label="Columns" value={`${die.cols}`}/>
               <Metric label="Rows" value={`${die.rows}`}/>
               <Metric label="Usable Dies" value={`${mapGood ?? die.usable}`}/>
+              <Metric label="Good Dies" value={`${mapGood ?? '-'}`}/>
+              <Metric label="Bad Dies" value={`${mapBad ?? '-'}`}/>
+              <Metric label="Yield" value={`${mapGood && die.usable? number((mapGood/die.usable)*100,1):'-'} %`}/>
             </div>
             <ThroughputPanel waferDiam={waferDiam} dieW={dieW} dieH={dieH} street={street} feed={feed} />
             <p className="text-xs text-muted-foreground">Usable dies falls back to geometric estimate unless a wafer map is loaded.</p>
@@ -435,8 +449,32 @@ export default function DicingEngineerToolkit(){
               wear={wear}
               tip={tip}
               kerf={kerf}
+              envTemp={envTemp}
+              chuckType={chuckType}
+              vacuum={vacuum}
             />
             <p className="text-xs text-muted-foreground">Review and export to PDF/CSV externally. This is a generated draft suitable for release after sign-off.</p>
+          </CardContent></Card>
+        </TabsContent>
+
+        {/* PROCESS FLOW */}
+        <TabsContent value="flow">
+          <Card><CardContent className="p-4 space-y-3">
+            <h2 className="text-lg font-medium">Process Flow Summary</h2>
+            {(()=>{
+              const vac = vacuumRangeForChuck(chuckType);
+              const yieldPct = mapGood && die.usable ? Number(((mapGood/die.usable)*100).toFixed(1)) : undefined;
+              return (
+                <ol className="list-decimal pl-6 text-sm space-y-1">
+                  <li>Wafer Prep: {material}, {waferDiam} mm diameter, {waferThk} µm thickness.</li>
+                  <li>Die Layout: {dieW} × {dieH} mm; Street {street} µm.</li>
+                  <li>Blade: Ø{bladeDia} mm × {bladeThk} µm; Bond {bladeBond}; Kerf est. {number(kerf)} µm.</li>
+                  <li>Machine Setpoints: {Math.round(rpm)} rpm; Feed {number(feed)} mm/s; Coolant {number(coolant,1)} L/min; Tip speed {number(tip)} m/s.</li>
+                  <li>Environment: {envTemp} °C; Chuck {chuckType}; Vacuum target {vac.lo}–{vac.hi} kPa (current {vacuum} kPa).</li>
+                  <li>Inspection: Good {mapGood ?? '-'} | Bad {mapBad ?? '-'} | Yield {yieldPct ?? '-'}%.</li>
+                </ol>
+              );
+            })()}
           </CardContent></Card>
         </TabsContent>
 
@@ -444,24 +482,6 @@ export default function DicingEngineerToolkit(){
         <TabsContent value="tests">
           <TestsTab />
         </TabsContent>
-
-        {/* PROCESS FLOW (new) */}
-        <TabsContent value="flow">
-          <Card><CardContent className="p-4 space-y-3">
-            <h2 className="text-lg font-medium">Process Flow Summary</h2>
-            <ol className="list-decimal pl-6 text-sm space-y-1">
-              <li>Wafer Prep: {material}, {waferDiam} mm, {waferThk} µm</li>
-              <li>Die Dimensions: {dieW} × {dieH} mm; Streets {street} µm</li>
-              <li>Blade Setup: {bladeDia} mm × {bladeThk} µm, Bond {bladeBond}</li>
-              <li>Machine Setpoints: RPM {rpm} (sug {number(rpmSug,0)}), Feed {feed} mm/s (sug {number(feedSug)}), Coolant {coolant} L/min (sug {number(coolantSug,1)})</li>
-              <li>Tip Speed {number(tip)} m/s (target 30–45), Kerf {number(kerf)} µm</li>
-              <li>Alignment: Offset X/Y {offX}/{offY} µm, Theta {theta}°, Vacuum target 70–90 kPa</li>
-              <li>Dummy Run & Verification: {verificationSummary()}</li>
-              <li>SOP & Release: Generated draft ready in SOP tab</li>
-            </ol>
-          </CardContent></Card>
-        </TabsContent>
-
       </Tabs>
 
       <footer className="text-xs text-muted-foreground pt-2">
@@ -535,11 +555,12 @@ function SpecTable({specs, meas, setMeas}:{specs:{name:string,nom:number,lo:numb
   );
 }
 
-function SOPBlock(props:{material:string, waferDiam:number, waferThk:number, dieW:number, dieH:number, street:number, bladeDia:number, bladeThk:number, bladeBond:string, rpm:number, feed:number, coolant:number, wear:number, tip:number, kerf:number}){
+function SOPBlock(props:{material:string, waferDiam:number, waferThk:number, dieW:number, dieH:number, street:number, bladeDia:number, bladeThk:number, bladeBond:string, rpm:number, feed:number, coolant:number, wear:number, tip:number, kerf:number, envTemp:number, chuckType:string, vacuum:number}){
   const {
-    material, waferDiam, waferThk, dieW, dieH, street, bladeDia, bladeThk, bladeBond, rpm, feed, coolant, wear, tip, kerf
+    material, waferDiam, waferThk, dieW, dieH, street, bladeDia, bladeThk, bladeBond, rpm, feed, coolant, wear, tip, kerf, envTemp, chuckType, vacuum
   } = props;
-  const text = `SOP: Wafer Dicing\n\n1) Wafer Structure & Identification\n- Material: ${material}\n- Diameter: ${waferDiam} mm; Thickness: ${waferThk} µm\n- Die size: ${dieW} × ${dieH} mm; Streets: ${street} µm\n- Orientation: notch/flat per traveler; Fiducials per mask (verify visibility).\n\n2) Blade Selection\n- Blade Ø: ${bladeDia} mm; Thickness: ${bladeThk} µm; Bond: ${bladeBond}\n- Expected kerf (initial): ${number(kerf)} µm; Tip speed target 30–45 m/s (current ${number(tip)}).\n\n3) Machine Setpoints\n- Spindle speed: ${Math.round(rpm)} rpm\n- Feed: ${number(feed)} mm/s\n- Coolant: ${number(coolant,1)} L/min\n- Wear factor: ${number(wear,2)} (update after every wafer)\n\n4) Alignment & Vacuum\n- Align to wafer fiducials; set theta ≤ 0.1°.\n- Vacuum level: 70–90 kPa (set per chuck spec).\n\n5) Dummy Sample Run\n- Run 1 wafer with current setpoints. Inspect kerf, edge chipping, die size.\n\n6) Measurement & Acceptance\n- Streets: ${street} µm ±10%\n- Die size: ±10 µm\n- Wafer thickness: ±2%\n- Kerf ≤ 1.5× blade thickness (monitor wear).\n\n7) Actions If OOS\n- Bring tip speed into 30–45 m/s via rpm.\n- Reduce feed or raise coolant.\n- Consider thinner/resin bond if chipping high.\n\n8) Documentation\n- Record all parameters and measurements in traveler. Release to production after PASS.\n`;
+  const vac = vacuumRangeForChuck(chuckType);
+  const text = `SOP: Wafer Dicing\n\n1) Wafer Structure & Identification\n- Material: ${material}\n- Diameter: ${waferDiam} mm; Thickness: ${waferThk} µm\n- Die size: ${dieW} × ${dieH} mm; Streets: ${street} µm\n- Orientation: notch/flat per traveler; Fiducials per mask (verify visibility).\n\n2) Blade Selection\n- Blade Ø: ${bladeDia} mm; Thickness: ${bladeThk} µm; Bond: ${bladeBond}\n- Expected kerf (initial): ${number(kerf)} µm; Tip speed target 30–45 m/s (current ${number(tip)}).\n\n3) Machine Setpoints\n- Spindle speed: ${Math.round(rpm)} rpm\n- Feed: ${number(feed)} mm/s\n- Coolant: ${number(coolant,1)} L/min\n- Wear factor: ${number(wear,2)} (update after every wafer)\n\n4) Environment & Vacuum\n- Room temp: ${envTemp} °C\n- Chuck: ${chuckType} (target ${vac.lo}–${vac.hi} kPa, set ${vacuum} kPa)\n\n5) Dummy Sample Run\n- Run 1 wafer with current setpoints. Inspect kerf, edge chipping, die size.\n\n6) Measurement & Acceptance\n- Streets: ${street} µm ±10%\n- Die size: ±10 µm\n- Wafer thickness: ±2%\n- Kerf ≤ 1.5× blade thickness (monitor wear).\n\n7) Actions If OOS\n- Bring tip speed into 30–45 m/s via rpm.\n- Reduce feed or raise coolant.\n- Consider thinner/resin bond if chipping high.\n\n8) Documentation\n- Record all parameters and measurements in traveler. Release to production after PASS.\n`;
   return (
     <pre className="text-sm whitespace-pre-wrap p-3 rounded-xl border bg-muted/30">{text}</pre>
   );
@@ -570,42 +591,36 @@ function TestsTab(){
   type Test = { name:string, pass:boolean, info?:string };
   const tests: Test[] = [];
   
-  // Test 1: Tip speed sanity (D=58mm, rpm=30k) ≈ 90.99 m/s
+  // Existing tests
   const ts = bladeTipSpeed(58, 30000);
   tests.push({ name: 'Tip speed calc', pass: Math.abs(ts - 90.99) < 0.5, info: ts.toFixed(2) });
-  
-  // Test 2: Die count scales with wafer diameter
   const d200 = dieCount(200, 5, 5, 60).usable;
   const d300 = dieCount(300, 5, 5, 60).usable;
   tests.push({ name: 'Die count scales with wafer', pass: d300 >= d200, info: `${d200}→${d300}`});
-  
-  // Test 3: Suggest feed bounds
   const sf = suggestFeed('Si', 725);
   tests.push({ name: 'Suggest feed in [0.2,6.0]', pass: sf>=0.2 && sf<=6.0, info: sf.toFixed(2)});
-  
-  // Test 4: Chipping risk stays within 0–100
   const riskVal = chippingRisk('Si', 1.5, 38, 725, 30, 4);
   tests.push({ name: 'Chipping risk bounded 0–100', pass: riskVal>=0 && riskVal<=100, info: String(riskVal)});
-  
-  // Test 5: Coolant suggestion monotonic with power
   const c1 = suggestCoolantLpm(0.1);
   const c2 = suggestCoolantLpm(0.2);
   tests.push({ name: 'Coolant suggestion monotonic', pass: c2 >= c1, info: `${c1.toFixed(1)}→${c2.toFixed(1)}` });
-
-  // Test 6: RPM suggestion yields realistic numeric range
   const rpmTest = suggestRPM('Si', 58, 'Resin');
   tests.push({ name: 'RPM suggestion in [8k,60k]', pass: rpmTest>=8000 && rpmTest<=60000, info: rpmTest.toFixed(0)});
-
-  // Test 7: CSV parser tolerates simple header
   const parsed = parseCSV('x,y,status\n0,0,good\n0,1,bad');
   const pGood = parsed.filter((d:any)=>d.status!=="bad").length;
   const pBad  = parsed.filter((d:any)=>d.status==="bad").length;
   tests.push({ name: 'CSV parser counts', pass: pGood===1 && pBad===1, info: `${pGood} good / ${pBad} bad`});
-
-  // Test 8: Bigger street should not increase usable dies
   const uNarrow = dieCount(300, 5, 5, 40).usable;
   const uWide   = dieCount(300, 5, 5, 120).usable;
   tests.push({ name: 'Street width effect', pass: uWide <= uNarrow, info: `${uNarrow} vs ${uWide}`});
+
+  // Added tests
+  const kerfA = estimateKerf(30, 0.1);
+  const kerfB = estimateKerf(30, 0.3);
+  tests.push({ name: 'Kerf increases with wear', pass: kerfB > kerfA, info: `${kerfA.toFixed(1)}→${kerfB.toFixed(1)}` });
+  const tip1 = bladeTipSpeed(58, 20000);
+  const tip2 = bladeTipSpeed(58, 40000);
+  tests.push({ name: 'Tip speed increases with RPM', pass: tip2 > tip1, info: `${tip1.toFixed(1)}→${tip2.toFixed(1)}` });
 
   return (
     <Card><CardContent className="p-4 space-y-3">
@@ -620,7 +635,8 @@ function TestsTab(){
   );
 }
 
-function getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip}:{street:number, kerf:number, dieW:number, dieH:number, waferThk:number, tip:number}){
+function getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip, vacuum, chuckType}:{street:number, kerf:number, dieW:number, dieH:number, waferThk:number, tip:number, vacuum:number, chuckType:string}){
+  const vacRange = vacuumRangeForChuck(chuckType);
   return [
     { name: 'Street Width (µm)', nom: street, lo: street*0.9, hi: street*1.1, key: 'street' },
     { name: 'Kerf (µm)', nom: kerf, lo: Math.max(0, kerf*0.8), hi: Math.max(kerf, kerf*1.5), key: 'kerf' },
@@ -628,6 +644,6 @@ function getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip}:{street:
     { name: 'Die Height (mm)', nom: dieH, lo: Math.max(0, dieH-0.01), hi: dieH+0.01, key: 'dieH' },
     { name: 'Wafer Thickness (µm)', nom: waferThk, lo: waferThk*0.98, hi: waferThk*1.02, key: 'thk' },
     { name: 'Tip Speed (m/s)', nom: tip, lo: 30, hi: 45, key: 'tip' },
-    { name: 'Vacuum Level (kPa)', nom: 80, lo: 70, hi: 90, key: 'vac' },
+    { name: 'Vacuum Level (kPa)', nom: vacuum, lo: vacRange.lo, hi: vacRange.hi, key: 'vac' },
   ];
 }
