@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Calculator, Settings, Sparkles, AlertTriangle, Upload } from "lucide-react";
+import { Download, Calculator, Settings, Sparkles, AlertTriangle, Upload, ListOrdered } from "lucide-react";
 
 // ------------------------
 // Math utilities and models
@@ -160,8 +160,20 @@ export default function DicingEngineerToolkit(){
     reader.readAsText(f);
   };
 
+  const verificationSpecs = getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip});
+
+  // Inline PASS/FAIL for Process Flow summary
+  const verificationSummary = () => {
+    const results = verificationSpecs.map(s => {
+      const m = Number(meas[s.key]);
+      const ok = isFinite(m) && m>=s.lo && m<=s.hi;
+      const status = isFinite(m) ? (ok? 'PASS' : 'FAIL') : '-';
+      return `${s.name}: ${status}`;
+    });
+    return results.join(" | ");
+  };
+
   const exportCSV = () => {
-    const verificationSpecs = getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip});
     const rows:string[][] = [
       ["Parameter","Value","Units"],
       ["Material", material, "-"],
@@ -194,7 +206,7 @@ export default function DicingEngineerToolkit(){
       const m = Number(meas[s.key]);
       const ok = isFinite(m) && m>=s.lo && m<=s.hi;
       const status = isFinite(m) ? (ok? 'PASS' : 'FAIL') : '-';
-      rows.push([s.name, (meas[s.key]??''), `${s.lo}–${s.hi}`, status]);
+      rows.push([s.name, (meas[s.key]??''), `${number(s.lo)}–${number(s.hi)}`, status]);
     });
     const csv = rows.map(r=>r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -203,8 +215,6 @@ export default function DicingEngineerToolkit(){
     a.href = url; a.download = "dicing_toolkit_export.csv"; a.click();
     URL.revokeObjectURL(url);
   };
-
-  const verificationSpecs = getVerificationSpecs({street, kerf, dieW, dieH, waferThk, tip});
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -217,7 +227,7 @@ export default function DicingEngineerToolkit(){
       </header>
 
       <Tabs defaultValue="process">
-        <TabsList className="grid grid-cols-8 w-full md:w-auto">
+        <TabsList className="grid grid-cols-9 w-full md:w-auto">
           <TabsTrigger value="process"><Settings className="mr-2 h-4 w-4"/>Process</TabsTrigger>
           <TabsTrigger value="planning"><Calculator className="mr-2 h-4 w-4"/>Planning</TabsTrigger>
           <TabsTrigger value="risk"><AlertTriangle className="mr-2 h-4 w-4"/>Risk</TabsTrigger>
@@ -226,6 +236,7 @@ export default function DicingEngineerToolkit(){
           <TabsTrigger value="verify">Verification</TabsTrigger>
           <TabsTrigger value="sop">SOP</TabsTrigger>
           <TabsTrigger value="tests">Tests</TabsTrigger>
+          <TabsTrigger value="flow"><ListOrdered className="mr-2 h-4 w-4"/>Process Flow</TabsTrigger>
         </TabsList>
 
         {/* PROCESS */}
@@ -433,6 +444,24 @@ export default function DicingEngineerToolkit(){
         <TabsContent value="tests">
           <TestsTab />
         </TabsContent>
+
+        {/* PROCESS FLOW (new) */}
+        <TabsContent value="flow">
+          <Card><CardContent className="p-4 space-y-3">
+            <h2 className="text-lg font-medium">Process Flow Summary</h2>
+            <ol className="list-decimal pl-6 text-sm space-y-1">
+              <li>Wafer Prep: {material}, {waferDiam} mm, {waferThk} µm</li>
+              <li>Die Dimensions: {dieW} × {dieH} mm; Streets {street} µm</li>
+              <li>Blade Setup: {bladeDia} mm × {bladeThk} µm, Bond {bladeBond}</li>
+              <li>Machine Setpoints: RPM {rpm} (sug {number(rpmSug,0)}), Feed {feed} mm/s (sug {number(feedSug)}), Coolant {coolant} L/min (sug {number(coolantSug,1)})</li>
+              <li>Tip Speed {number(tip)} m/s (target 30–45), Kerf {number(kerf)} µm</li>
+              <li>Alignment: Offset X/Y {offX}/{offY} µm, Theta {theta}°, Vacuum target 70–90 kPa</li>
+              <li>Dummy Run & Verification: {verificationSummary()}</li>
+              <li>SOP & Release: Generated draft ready in SOP tab</li>
+            </ol>
+          </CardContent></Card>
+        </TabsContent>
+
       </Tabs>
 
       <footer className="text-xs text-muted-foreground pt-2">
