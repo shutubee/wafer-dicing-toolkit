@@ -27,7 +27,7 @@ A. Math & Physics Utilities
 | **estimatePowerKW(material, feed, kerf, t\_um)**                      | Estimates spindle power usage during cut.                     | `material`, `feed`, `kerf`, `t_um`                         | kW                 | Material constant *cMat* varies (Si=0.015, SiC=0.06, etc.) |
 | **suggestCoolantLpm(powerKW)**                                        | Recommends coolant flow rate.                                 | `powerKW`                                                  | L/min              | 3 + 6 × powerKW, bounded 1–12                              |
 | **chippingRisk(material, feed, tip, t\_um, blade\_thk\_um, coolant)** | Calculates probability of edge chipping.                      | 
-
+All process inputs                                         | Risk score (0–100) | Lower is safer; <35 = low risk                             |
 
 
 
@@ -74,4 +74,4 @@ Key Parameters :
 
 
 
-All process inputs                                         | Risk score (0–100) | Lower is safer; <35 = low risk                             |
+
