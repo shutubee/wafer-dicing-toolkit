@@ -1,4 +1,4 @@
-# wafer-dicing-toolkit
+# wafer dicing toolkit
 This application provides wafer dicing engineers with a unified interface for process setup, blade
 and coolant optimization, die yield estimation, verification planning, and SOP generation. It includes
 mathematical models for feed rate, kerf estimation, chipping risk, spindle power, and coolant flow
@@ -70,6 +70,8 @@ Key Parameters :
 | **cMat**            | —                      | Material-dependent power coefficient            |
 | **risk score**      | 0–100                  | Estimated chipping/defect probability           |
 | **usable dies**     | count                  | Estimated good dies after excluding edge losses |
+
+
 
 
 
