@@ -73,6 +73,21 @@ Key Parameters :
 
 
 
+Core React Tables and their Functionality :
+
+| Tab              | Description                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| **Process**      | Configures process parameters (material, wafer, die, blade, RPM, coolant).         |
+| **Planning**     | Computes die layout, throughput, and yield estimates.                              |
+| **Risk**         | Displays qualitative risk breakdown and mitigation suggestions.                    |
+| **Map**          | Imports wafer maps via CSV and counts good/bad dies.                               |
+| **Life & Align** | Tracks blade wear, accumulated cuts, and stage alignment offsets.                  |
+| **Verify**       | Displays verification specs, allows input of measured values, and pass/fail logic. |
+| **SOP**          | Auto-generates Standard Operating Procedure (SOP) text block for review/export.    |
+| **Flow**         | Summarizes process flow in list form (input to inspection).                        |
+| **Tests**        | Performs internal logic consistency checks at runtime.                             |
+
+
 
 
 
