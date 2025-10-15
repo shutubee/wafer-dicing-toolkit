@@ -26,4 +26,52 @@ A. Math & Physics Utilities
 | **suggestRPM(material, diameter\_mm, blade\_bond)**                   | Suggests optimal spindle speed for target tip velocity.       | `material`, `diameter_mm`, `blade_bond`                    | rpm                | Range: 8,000–60,000 rpm                                    |
 | **estimatePowerKW(material, feed, kerf, t\_um)**                      | Estimates spindle power usage during cut.                     | `material`, `feed`, `kerf`, `t_um`                         | kW                 | Material constant *cMat* varies (Si=0.015, SiC=0.06, etc.) |
 | **suggestCoolantLpm(powerKW)**                                        | Recommends coolant flow rate.                                 | `powerKW`                                                  | L/min              | 3 + 6 × powerKW, bounded 1–12                              |
-| **chippingRisk(material, feed, tip, t\_um, blade\_thk\_um, coolant)** | Calculates probability of edge chipping.                      | All process inputs                                         | Risk score (0–100) | Lower is safer; <35 = low risk                             |
+| **chippingRisk(material, feed, tip, t\_um, blade\_thk\_um, coolant)** | Calculates probability of edge chipping.                      | 
+
+
+
+
+B.Geometry and Yield
+
+
+| Function                                                          | Description                           | Parameters             | Output                 | Example                                                      |
+| ----------------------------------------------------------------- | ------------------------------------- | ---------------------- | ---------------------- | ------------------------------------------------------------ |
+| **dieCount(wafer\_diam\_mm, die\_w\_mm, die\_h\_mm, street\_um)** | Estimates die layout and usable dies. | Wafer and die geometry | `{cols, rows, usable}` | 300 mm wafer, 5×5 mm dies, 60 µm street → \~2700 usable dies |
+
+
+C. Vacuum Range
+
+
+| Function                           | Description                                    | Input                                 | Output            | Notes                                 |
+| ---------------------------------- | ---------------------------------------------- | ------------------------------------- | ----------------- | ------------------------------------- |
+| **vacuumRangeForChuck(chuckType)** | Provides expected vacuum range for chuck type. | `"Standard"`, `"HighVac"`, `"LowVac"` | `{lo, hi}` in kPa | Ensures wafer stability during dicing |
+
+
+D. CSV Parsing
+
+| Function           | Description                                  | Input Format                         | Output                    | Notes                                |
+| ------------------ | -------------------------------------------- | ------------------------------------ | ------------------------- | ------------------------------------ |
+| **parseCSV(text)** | Parses wafer map CSV to count good/bad dies. | `x,y,status` or `die_x,die_y,status` | Array of `{x, y, status}` | Used in *Map* tab to calculate yield |
+
+
+Key Parameters :
+
+| Parameter           | Unit                   | Meaning / Description                           |
+| ------------------- | ---------------------- | ----------------------------------------------- |
+| **rpm**             | revolutions per minute | Blade spindle rotation speed                    |
+| **feed**            | mm/s                   | Feed rate (table advance per second)            |
+| **kerf**            | µm                     | Cut width (increases with wear)                 |
+| **tip speed**       | m/s                    | Linear edge velocity of blade                   |
+| **coolant flow**    | L/min                  | Flow rate of coolant to dissipate heat          |
+| **die pitch (X/Y)** | mm                     | Die width/height + street width                 |
+| **street**          | µm                     | Separation channel between dies                 |
+| **wear factor**     | 0–1                    | Fractional measure of blade wear                |
+| **vacuum level**    | kPa                    | Chuck vacuum pressure for wafer fixation        |
+| **wafer thickness** | µm                     | Total wafer thickness, affects feed and RPM     |
+| **cMat**            | —                      | Material-dependent power coefficient            |
+| **risk score**      | 0–100                  | Estimated chipping/defect probability           |
+| **usable dies**     | count                  | Estimated good dies after excluding edge losses |
+
+
+
+All process inputs                                         | Risk score (0–100) | Lower is safer; <35 = low risk                             |
